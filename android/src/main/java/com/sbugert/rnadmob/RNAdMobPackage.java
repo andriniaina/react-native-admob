@@ -1,5 +1,7 @@
 package com.sbugert.rnadmob;
 
+import android.app.Activity;
+
 import com.facebook.react.ReactPackage;
 import com.facebook.react.bridge.JavaScriptModule;
 import com.facebook.react.bridge.NativeModule;
@@ -11,6 +13,12 @@ import java.util.Collections;
 import java.util.List;
 
 public class RNAdMobPackage implements ReactPackage {
+
+    private final Activity activity;
+
+    public RNAdMobPackage(Activity activity){
+        this.activity = activity;
+    }
 
     @Override
     public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
@@ -24,6 +32,6 @@ public class RNAdMobPackage implements ReactPackage {
 
     @Override
     public List<ViewManager> createViewManagers(ReactApplicationContext reactContext) {
-        return Arrays.<ViewManager>asList(new RNAdMobBannerViewManager());
+        return Arrays.<ViewManager>asList(new RNAdMobBannerViewManager(this.activity));
     }
 }

@@ -1,5 +1,6 @@
 package com.sbugert.rnadmob;
 
+import android.app.Activity;
 import android.support.annotation.Nullable;
 
 import com.facebook.react.bridge.Arguments;
@@ -48,6 +49,11 @@ public class RNAdMobBannerViewManager extends SimpleViewManager<ReactViewGroup> 
 
   private ThemedReactContext mThemedReactContext;
   private RCTEventEmitter mEventEmitter;
+  private Activity activity;
+
+  public RNAdMobBannerViewManager(Activity activity){
+    this.activity = activity;
+  }
 
   @Override
   public String getName() {
@@ -64,7 +70,7 @@ public class RNAdMobBannerViewManager extends SimpleViewManager<ReactViewGroup> 
    }
 
   protected void attachNewAdView(final ReactViewGroup view) {
-    final AdView adView = new AdView(mThemedReactContext);
+    final AdView adView = new AdView(activity);
 
     // destroy old AdView if present
     AdView oldAdView = (AdView) view.getChildAt(0);
