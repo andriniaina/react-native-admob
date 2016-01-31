@@ -22,7 +22,7 @@ public class RNAdMobPackage implements ReactPackage {
 
     @Override
     public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
-        return Arrays.<NativeModule>asList(new RNAdMobInterstitialAdModule(reactContext));
+        return Arrays.<NativeModule>asList(new RNAdMobInterstitialAdModule(reactContext, this.activity));
     }
 
     @Override
@@ -35,3 +35,4 @@ public class RNAdMobPackage implements ReactPackage {
         return Arrays.<ViewManager>asList(new RNAdMobBannerViewManager(this.activity));
     }
 }
+
