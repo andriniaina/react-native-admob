@@ -1,10 +1,14 @@
 package com.sbugert.rnadmob;
 
+import android.app.Activity;
+import android.location.Location;
 import android.support.annotation.Nullable;
 import android.view.View.OnLayoutChangeListener;
 import android.view.View;
+import android.util.Log;
 
 import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.common.MapBuilder;
 import com.facebook.react.uimanager.PixelUtil;
@@ -18,10 +22,15 @@ import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.AdSize;
 import com.google.android.gms.ads.AdView;
 
+import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class RNAdMobBannerViewManager extends SimpleViewManager<ReactViewGroup> {
 
+  public static final String TAG = "RNAdMob";
   public static final String REACT_CLASS = "RNAdMob";
 
   public static final String PROP_BANNER_SIZE = "bannerSize";
@@ -29,6 +38,12 @@ public class RNAdMobBannerViewManager extends SimpleViewManager<ReactViewGroup> 
   public static final String PROP_TEST_DEVICE_ID = "testDeviceID";
 
   private String testDeviceID = null;
+  public static final String PROP_AD_TARGETING_LOCATION = "location";
+  public static final String PROP_AD_TARGETING_GENDER = "gender";
+  public static final String PROP_AD_TARGETING_BIRTHDAY = "birthday";
+  private String gender = null;
+  private Date birthday;
+  private String location;
 
   public enum Events {
     EVENT_SIZE_CHANGE("onSizeChange"),
@@ -203,6 +218,52 @@ public class RNAdMobBannerViewManager extends SimpleViewManager<ReactViewGroup> 
     this.testDeviceID = testDeviceID;
   }
 
+  @ReactProp(name = PROP_AD_TARGETING_GENDER)
+  public void setGender(final ReactViewGroup view, final String gender) {
+    AdView oldAdView = (AdView) view.getChildAt(0);
+    AdSize adSize = oldAdView.getAdSize();
+    String adUnitID = oldAdView.getAdUnitId();
+
+    attachNewAdView(view);
+    AdView newAdView = (AdView) view.getChildAt(0);
+    newAdView.setAdUnitId(adUnitID);
+    newAdView.setAdSize(adSize);
+
+    this.gender = gender;
+    loadAd(newAdView);
+  }
+
+  @ReactProp(name = PROP_AD_TARGETING_LOCATION)
+  public void setLocation(final ReactViewGroup view, final String location) {
+    AdView oldAdView = (AdView) view.getChildAt(0);
+    AdSize adSize = oldAdView.getAdSize();
+    String adUnitID = oldAdView.getAdUnitId();
+
+    attachNewAdView(view);
+    AdView newAdView = (AdView) view.getChildAt(0);
+    newAdView.setAdUnitId(adUnitID);
+    newAdView.setAdSize(adSize);
+
+    this.location = location;
+    loadAd(newAdView);
+  }
+
+  @ReactProp(name = PROP_AD_TARGETING_BIRTHDAY)
+  public void setBirthday(final ReactViewGroup view, final ReadableMap birthday) {
+    AdView oldAdView = (AdView) view.getChildAt(0);
+    if (birthday != null)
+      this.birthday = new GregorianCalendar(birthday.getInt("year"), birthday.getInt("month"), birthday.getInt("date")).getTime();
+    AdSize adSize = oldAdView.getAdSize();
+    String adUnitID = oldAdView.getAdUnitId();
+
+    attachNewAdView(view);
+    AdView newAdView = (AdView) view.getChildAt(0);
+    newAdView.setAdUnitId(adUnitID);
+    newAdView.setAdSize(adSize);
+
+    loadAd(newAdView);
+  }
+
   private void loadAd(final AdView adView) {
     if (adView.getAdSize() != null && adView.getAdUnitId() != null) {
       AdRequest.Builder adRequestBuilder = new AdRequest.Builder();
@@ -213,6 +274,34 @@ public class RNAdMobBannerViewManager extends SimpleViewManager<ReactViewGroup> 
           adRequestBuilder = adRequestBuilder.addTestDevice(testDeviceID);
         }
       }
+
+      if ("female".equals(gender)) {
+        adRequestBuilder = adRequestBuilder.setGender(AdRequest.GENDER_FEMALE);
+        Log.d(TAG, "set Gender=female");
+      } else if ("male".equals(gender)) {
+        adRequestBuilder = adRequestBuilder.setGender(AdRequest.GENDER_MALE);
+        Log.d(TAG, "set Gender=male");
+      }
+
+      if (birthday != null) {
+        adRequestBuilder = adRequestBuilder.setBirthday(birthday);
+        Log.d(TAG, "set birthday=" + birthday.toString());
+      }
+
+      if (this.location != null)
+        try {
+          String[] parts = location.split(",");
+          double latitude = Double.parseDouble(parts[0]);
+          double longitude = Double.parseDouble(parts[1]);
+          Location location = new Location("");
+          location.setLatitude(latitude);
+          location.setLongitude(longitude);
+          adRequestBuilder = adRequestBuilder.setLocation(location);
+          Log.d(TAG, "set location=" + location.toString());
+        } catch (Exception ex) {
+          Log.e(TAG, ex.toString());
+        }
+
       AdRequest adRequest = adRequestBuilder.build();
       adView.loadAd(adRequest);
     }
