@@ -25,6 +25,7 @@ ios/GoogleMobileAds.framework/
 
 # Android/IJ
 #
+*.iml
 .idea
 .gradle
 local.properties
@@ -33,3 +34,9 @@ local.properties
 #
 node_modules/
 npm-debug.log
+
+# BUCK
+buck-out/
+\.buckd/
+android/app/libs
+android/keystores/debug.keystore

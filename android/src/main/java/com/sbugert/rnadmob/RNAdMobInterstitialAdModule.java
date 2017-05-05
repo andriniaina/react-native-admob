@@ -1,119 +1,144 @@
-
 package com.sbugert.rnadmob;
 
-import android.app.Activity;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
+import android.support.annotation.Nullable;
 
 import com.facebook.react.bridge.Arguments;
-import com.facebook.react.bridge.NativeModule;
+import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.ReactApplicationContext;
-import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
-import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 import com.google.android.gms.ads.AdListener;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.InterstitialAd;
 
-import java.util.Date;
-import java.util.GregorianCalendar;
-
-/**
- * Created by andri on 16/01/2016.
- */
 public class RNAdMobInterstitialAdModule extends ReactContextBaseJavaModule {
-  public static final String TAG = "RNAdMobInterstitial";
-  private final Activity activity;
   InterstitialAd mInterstitialAd;
-  String testDeviceId;
-  private String gender;
-  private Date birthday;
-
-  public RNAdMobInterstitialAdModule(ReactApplicationContext reactContext, Activity activity) {
-    super(reactContext);
-    this.activity = activity;
-  }
+  String adUnitID;
+  String testDeviceID;
+  Callback requestAdCallback;
+  Callback showAdCallback;
 
   @Override
   public String getName() {
     return "RNAdMobInterstitial";
   }
 
-  @ReactMethod
-  public void init(final String adUnitID, final String testDeviceId, final String gender, final ReadableMap birthday) {
-    mInterstitialAd = new InterstitialAd(this.activity);
-    this.testDeviceId = testDeviceId;
-    this.gender = gender;
-    if (birthday != null)
-      this.birthday = new GregorianCalendar(birthday.getInt("year"), birthday.getInt("month"), birthday.getInt("date")).getTime();
+  public RNAdMobInterstitialAdModule(ReactApplicationContext reactContext) {
+    super(reactContext);
+    mInterstitialAd = new InterstitialAd(reactContext);
 
     new Handler(Looper.getMainLooper()).post(new Runnable() {
       @Override
       public void run() {
-        Log.d(TAG, "Setting adUnitId:" + adUnitID);
-        mInterstitialAd.setAdUnitId(adUnitID);
-
         mInterstitialAd.setAdListener(new AdListener() {
           @Override
           public void onAdClosed() {
-            sendEvent(getReactApplicationContext(), "onAdInterstitialClosed");
+            sendEvent("interstitialDidClose", null);
+            showAdCallback.invoke();
+          }
+          @Override
+          public void onAdFailedToLoad(int errorCode) {
+            WritableMap event = Arguments.createMap();
+            String errorString = null;
+            switch (errorCode) {
+              case AdRequest.ERROR_CODE_INTERNAL_ERROR:
+                errorString = "ERROR_CODE_INTERNAL_ERROR";
+                break;
+              case AdRequest.ERROR_CODE_INVALID_REQUEST:
+                errorString = "ERROR_CODE_INVALID_REQUEST";
+                break;
+              case AdRequest.ERROR_CODE_NETWORK_ERROR:
+                errorString = "ERROR_CODE_NETWORK_ERROR";
+                break;
+              case AdRequest.ERROR_CODE_NO_FILL:
+                errorString = "ERROR_CODE_NO_FILL";
+                break;
+            }
+            event.putString("error", errorString);
+            sendEvent("interstitialDidFailToLoad", event);
+            requestAdCallback.invoke(errorString);
+          }
+          @Override
+          public void onAdLeftApplication() {
+            sendEvent("interstitialWillLeaveApplication", null);
+          }
+          @Override
+          public void onAdLoaded() {
+            sendEvent("interstitialDidLoad", null);
+            requestAdCallback.invoke();
+          }
+          @Override
+          public void onAdOpened() {
+            sendEvent("interstitialDidOpen", null);
           }
         });
       }
     });
   }
+  private void sendEvent(String eventName, @Nullable WritableMap params) {
+    getReactApplicationContext().getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit(eventName, params);
+  }
 
   @ReactMethod
-  public void requestNewInterstitial() {
+  public void setAdUnitID(String adUnitID) {
+    mInterstitialAd.setAdUnitId(adUnitID);
+  }
+
+  @ReactMethod
+  public void setTestDeviceID(String testDeviceID) {
+    this.testDeviceID = testDeviceID;
+  }
+
+  @ReactMethod
+  public void requestAd(final Callback callback) {
     new Handler(Looper.getMainLooper()).post(new Runnable() {
       @Override
-      public void run() {
-        AdRequest.Builder builder = new AdRequest.Builder();
-        if (testDeviceId != null) {
-          builder = builder.addTestDevice(testDeviceId);
-          Log.d(TAG, "Setting testDeviceId:" + testDeviceId);
+      public void run () {
+        if (mInterstitialAd.isLoaded() || mInterstitialAd.isLoading()) {
+          callback.invoke("Ad is already loaded."); // TODO: make proper error
+        } else {
+          requestAdCallback = callback;
+          AdRequest.Builder adRequestBuilder = new AdRequest.Builder();
+          if (testDeviceID != null){
+            if (testDeviceID.equals("EMULATOR")) {
+              adRequestBuilder = adRequestBuilder.addTestDevice(AdRequest.DEVICE_ID_EMULATOR);
+            } else {
+              adRequestBuilder = adRequestBuilder.addTestDevice(testDeviceID);
+            }
+          }
+          AdRequest adRequest = adRequestBuilder.build();
+          mInterstitialAd.loadAd(adRequest);
         }
-
-        if ("female".equals(gender)) {
-          builder = builder.setGender(AdRequest.GENDER_FEMALE);
-          Log.d(TAG, "set Gender=female");
-        } else if ("male".equals(gender)) {
-          builder = builder.setGender(AdRequest.GENDER_MALE);
-          Log.d(TAG, "set Gender=male");
-        }
-
-        if (birthday != null) {
-          builder = builder.setBirthday(birthday);
-          Log.d(TAG, "set birthday=" + birthday.toString());
-        }
-
-        AdRequest adRequest = builder.build();
-        mInterstitialAd.loadAd(adRequest);
-        Log.d(TAG, "loadAd started");
       }
     });
   }
 
   @ReactMethod
-  public void show() {
+  public void showAd(final Callback callback) {
     new Handler(Looper.getMainLooper()).post(new Runnable() {
       @Override
-      public void run() {
-        if (mInterstitialAd.isLoaded())
+      public void run () {
+        if (mInterstitialAd.isLoaded()) {
+          showAdCallback = callback;
           mInterstitialAd.show();
-        else
-          Log.w(TAG, "Interstitial is not loaded yet!");
+        } else {
+          callback.invoke("Ad is not ready."); // TODO: make proper error
+        }
       }
     });
   }
 
-  private void sendEvent(ReactContext reactContext, String eventName) {
-    reactContext
-            .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-            .emit(eventName, Arguments.createMap());
+  @ReactMethod
+  public void isReady(final Callback callback) {
+    new Handler(Looper.getMainLooper()).post(new Runnable() {
+      @Override
+      public void run () {
+        callback.invoke(mInterstitialAd.isLoaded());
+      }
+    });
   }
 }
-
